@@ -20,23 +20,48 @@ class Learner(object):
         self.last_state  = None
         self.last_action = None
         self.last_reward = None
+        self.last_last_state = None
+        self.last_last_action = None
+        self.last_last_reward = None
+
+
+
         self.gravity = 0
-        self.explorationCoef = .1
-        self.eta = 0.1
-        self.gamma = 0.9
+        self.explorationCoef = .001
+        self.eta = 0.99
+        self.gamma = 0.99
         self.qs = {}
 
     def reset(self):
+        # do death update:
+        ourLastVel = self.last_last_state['monkey']['vel']
+        last_bot_bot = self.last_last_state['monkey']['bot'] - self.last_last_state['tree']['bot']
+        last_state_y = find_nearest(bot_vals, last_bot_bot)
+
+        self.previousReward = 1 if self.last_last_state['tree']['dist']==460 else 0
+
+        # current state: relHeight bin, x-dist, grav, velocity
+        previousState = (last_state_y, self.last_last_state['tree']['dist'], self.gravity, ourLastVel)
+        w = self.qs[(previousState, self.last_last_action)] - self.eta * (
+                            self.qs[(previousState, self.last_last_action)] -
+                            (self.previousReward + self.gamma * self.last_reward))
+        self.qs[(previousState, self.last_last_action)] = w
+
+
+
         self.last_state  = None
         self.last_action = None
         self.last_reward = None
 
     def action_callback(self, state):
 
+
+        #print(self.gravity)
         starting = False
         if state['tree']['dist'] == 485:
             self.gravity = 0
-            starting = True
+            if self.last_reward == None:
+                starting = True
         elif self.gravity == 0:
             self.gravity = state['monkey']['vel']
 
@@ -68,14 +93,13 @@ class Learner(object):
                     self.qs[(currentState, i)] = 0
 
             maxQCurrent = max(self.qs[(currentState, 0)],self.qs[(currentState, 1)])
-            #print(self.qs[(currentState, 0)])
-            bestOption = np.argmax(self.qs[(currentState, 0)],self.qs[(currentState, 1)])
-            #print(bestOption)
+            bestOption = [self.qs[(currentState, 0)], self.qs[(currentState, 1)]].index(maxQCurrent)
 
 
             if (previousState, self.last_action) in self.qs:
                 w = self.qs[(previousState, self.last_action)] - self.eta*(self.qs[(previousState, self.last_action)] -
                                                                      (self.last_reward + self.gamma*maxQCurrent))
+
                 self.qs[(previousState, self.last_action)] = w
             else:
                 self.qs[(previousState, self.last_action)] = 0
@@ -90,21 +114,18 @@ class Learner(object):
         else:
             new_action = 0
         new_state  = state
-        #print(new_state)
-        #print(self.gravity)
 
 
         self.last_action = new_action
         self.last_state  = new_state
-
+        self.last_last_state = state
+        self.last_last_action = new_action
 
         return new_action
-
-        #1 if state['monkey']['bot'] < state['tree']['bot'] - state['monkey']['vel'] - self.gravity else 0
+        #return 1 if state['monkey']['bot'] < state['tree']['bot'] - state['monkey']['vel'] - self.gravity else 0
 
     def reward_callback(self, reward):
         '''This gets called so you can see what reward you get.'''
-        #print(reward)
         self.last_reward = reward
 
 
@@ -125,7 +146,7 @@ def run_games(learner, hist, iters = 100, t_len = 100):
         # Loop until you hit something.
         while swing.game_loop():
             pass
-        
+
         # Save score history.
         hist.append(swing.score)
 
@@ -144,7 +165,7 @@ if __name__ == '__main__':
 	hist = []
 
 	# Run games. 
-	run_games(agent, hist, 2000, 1)
+	run_games(agent, hist, 2000, 50)
 
 	# Save history. 
 	np.save('hist',np.array(hist))

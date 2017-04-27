@@ -6,10 +6,32 @@ from SwingyMonkey import SwingyMonkey
 
 bin_size = 10
 # Possible interval values for monkey
-bot_vals = np.arange(-155, 50, bin_size)
+bot_vals = np.arange(-155, 100, bin_size)
 def find_nearest(array,value):
     idx = (np.abs(array-value)).argmin()
     return idx
+
+xBins = [485,200,100,50,-50,-1000]
+
+def getStateKey(state, grav):
+    print(state['monkey']['bot'] + state['monkey']['vel'] + grav)
+    print(state['monkey']['bot'])
+    print(state['monkey']['vel'])
+    print(grav)
+    if state['monkey']['bot'] + state['monkey']['vel'] + grav < 25:
+
+        print(state)
+        return 'dead'
+    else:
+        vel = state['monkey']['vel']
+        bot_bot = state['monkey']['bot'] - state['tree']['bot']
+        state_y = find_nearest(bot_vals, bot_bot)
+        return state_y, bin_X(state['tree']['dist']), grav, vel / abs(vel) if vel != 0 else 0
+
+def bin_X(value):
+    for i in range(len(xBins)):
+        if value > i:
+            return i
 
 class Learner(object):
     '''
@@ -27,21 +49,23 @@ class Learner(object):
 
 
         self.gravity = 0
-        self.explorationCoef = .001
+        self.explorationCoef = .00#1
         self.eta = 0.99
         self.gamma = 0.99
         self.qs = {}
 
     def reset(self):
+        print ("REEEEESSSSSEEET")
         # do death update:
-        ourLastVel = self.last_last_state['monkey']['vel']
-        last_bot_bot = self.last_last_state['monkey']['bot'] - self.last_last_state['tree']['bot']
-        last_state_y = find_nearest(bot_vals, last_bot_bot)
+        # ourLastVel = self.last_last_state['monkey']['vel']
+        # last_bot_bot = self.last_last_state['monkey']['bot'] - self.last_last_state['tree']['bot']
+        # last_state_y = find_nearest(bot_vals, last_bot_bot)
 
         self.previousReward = 1 if self.last_last_state['tree']['dist']==460 else 0
 
         # current state: relHeight bin, x-dist, grav, velocity
-        previousState = (last_state_y, self.last_last_state['tree']['dist'], self.gravity, ourLastVel)
+        previousState = getStateKey(self.last_last_state,self.gravity)
+        #previousState = (last_state_y, bin_X(self.last_last_state['tree']['dist']), self.gravity, ourLastVel/abs(ourLastVel) if ourLastVel != 0 else 0)
         w = self.qs[(previousState, self.last_last_action)] - self.eta * (
                             self.qs[(previousState, self.last_last_action)] -
                             (self.previousReward + self.gamma * self.last_reward))
@@ -58,7 +82,7 @@ class Learner(object):
 
         #print(self.gravity)
         starting = False
-        if state['tree']['dist'] == 485:
+        if state['tree']['dist'] == 485 and state['monkey']['vel'] == 0:
             self.gravity = 0
             if self.last_reward == None:
                 starting = True
@@ -76,17 +100,20 @@ class Learner(object):
         '''
         if not starting:
             # You might do some learning here based on the current state and the last state.
-            ourVel = state['monkey']['vel']
-            bot_bot = state['monkey']['bot'] - state['tree']['bot']
-            state_y = find_nearest(bot_vals, bot_bot)
-
-            ourLastVel = self.last_state['monkey']['vel']
-            last_bot_bot = self.last_state['monkey']['bot'] - self.last_state['tree']['bot']
-            last_state_y = find_nearest(bot_vals, last_bot_bot)
-
-            #current state: relHeight bin, x-dist, grav, velocity
-            currentState = (state_y, state['tree']['dist'], self.gravity, ourVel)
-            previousState = (last_state_y, self.last_state['tree']['dist'], self.gravity, ourLastVel)
+            # ourVel = state['monkey']['vel']
+            # bot_bot = state['monkey']['bot'] - state['tree']['bot']
+            # state_y = find_nearest(bot_vals, bot_bot)
+            #
+            # ourLastVel = self.last_state['monkey']['vel']
+            # last_bot_bot = self.last_state['monkey']['bot'] - self.last_state['tree']['bot']
+            # last_state_y = find_nearest(bot_vals, last_bot_bot)
+            #
+            # #current state: relHeight bin, x-dist, grav, velocity
+            # currentState = (state_y, bin_X(state['tree']['dist']), self.gravity, ourVel/abs(ourVel) if ourVel != 0 else 0)
+            # previousState = (last_state_y, bin_X(self.last_state['tree']['dist']), self.gravity, ourLastVel/abs(ourLastVel) if ourLastVel != 0 else 0)
+           # print(state)
+            currentState = getStateKey(state, self.gravity)
+            previousState = getStateKey(self.last_state, self.gravity)
 
             for i in (0,1):
                 if (currentState, i) not in self.qs:

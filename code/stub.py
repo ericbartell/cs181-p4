@@ -4,6 +4,7 @@ import numpy.random as npr
 
 from SwingyMonkey import SwingyMonkey
 
+collisionWithGround = 25
 bin_size = 10
 # Possible interval values for monkey
 bot_vals = np.arange(-155, 100, bin_size)
@@ -11,27 +12,38 @@ def find_nearest(array,value):
     idx = (np.abs(array-value)).argmin()
     return idx
 
-xBins = [485,200,100,50,-50,-1000]
-
-def getStateKey(state, grav):
-    print(state['monkey']['bot'] + state['monkey']['vel'] + grav)
-    print(state['monkey']['bot'])
-    print(state['monkey']['vel'])
-    print(grav)
-    if state['monkey']['bot'] + state['monkey']['vel'] + grav < 25:
-
-        print(state)
-        return 'dead'
-    else:
-        vel = state['monkey']['vel']
-        bot_bot = state['monkey']['bot'] - state['tree']['bot']
-        state_y = find_nearest(bot_vals, bot_bot)
-        return state_y, bin_X(state['tree']['dist']), grav, vel / abs(vel) if vel != 0 else 0
-
+xBins = [485,300,250,200,0,-1000]
 def bin_X(value):
     for i in range(len(xBins)):
         if value > i:
             return i
+
+def bin_vel(value):
+    if value < 0:
+        # if value < -10:
+        #     return -2
+        # else:
+        return -1
+    elif value == 0:
+        return 0
+    else:
+        # if value > 20:
+        #     return 2
+        # else:
+        return 1
+
+def getStateKey(state, grav):
+    if state['monkey']['bot'] + state['monkey']['vel'] + grav < collisionWithGround:
+        return 'BottomState'
+    elif state['monkey']['top'] > state['monkey']['top']:
+        return 'TopState'
+    else:
+        vel = state['monkey']['vel']
+        bot_bot = state['monkey']['bot'] - state['tree']['bot']
+        state_y = find_nearest(bot_vals, bot_bot)
+        return state_y, bin_X(state['tree']['dist']), grav, bin_vel(vel)
+
+
 
 class Learner(object):
     '''
@@ -49,13 +61,12 @@ class Learner(object):
 
 
         self.gravity = 0
-        self.explorationCoef = .00#1
-        self.eta = 0.99
-        self.gamma = 0.99
+        self.explorationCoef = .001
+        self.eta = 0.5
+        self.gamma = 0.90
         self.qs = {}
 
     def reset(self):
-        print ("REEEEESSSSSEEET")
         # do death update:
         # ourLastVel = self.last_last_state['monkey']['vel']
         # last_bot_bot = self.last_last_state['monkey']['bot'] - self.last_last_state['tree']['bot']
@@ -70,7 +81,10 @@ class Learner(object):
                             self.qs[(previousState, self.last_last_action)] -
                             (self.previousReward + self.gamma * self.last_reward))
         self.qs[(previousState, self.last_last_action)] = w
-
+        print("Last state before death:")
+        print(self.last_last_state)
+        print(self.last_reward)
+        print ("RESET")
 
 
         self.last_state  = None
@@ -134,10 +148,14 @@ class Learner(object):
 
             # You'll need to select and action and return it.
             # Return 0 to swing and 1 to jump.
-
+            #print(state)
 
             randVal = npr.random()
-            new_action = bestOption if randVal>self.explorationCoef else npr.randint(0,2)
+            if bestOption == 1 and currentState != "BottomState":
+
+                new_action = bestOption if randVal>self.explorationCoef else npr.randint(0,2)
+            else:
+                new_action = bestOption
         else:
             new_action = 0
         new_state  = state
@@ -168,7 +186,7 @@ def run_games(learner, hist, iters = 100, t_len = 100):
                              text="Epoch %d" % (ii),       # Display the epoch on screen.
                              tick_length = t_len,          # Make game ticks super fast.
                              action_callback=learner.action_callback,
-                             reward_callback=learner.reward_callback)
+                             reward_callback=learner.reward_callback,grav = 4)
 
         # Loop until you hit something.
         while swing.game_loop():
@@ -179,7 +197,7 @@ def run_games(learner, hist, iters = 100, t_len = 100):
 
         # Reset the state of the learner.
         learner.reset()
-        
+    print (learner.qs)
     return
 
 
@@ -192,7 +210,7 @@ if __name__ == '__main__':
 	hist = []
 
 	# Run games. 
-	run_games(agent, hist, 2000, 50)
+	run_games(agent, hist, 200, 1)
 
 	# Save history. 
 	np.save('hist',np.array(hist))

@@ -12,10 +12,11 @@ def find_nearest(array,value):
     idx = (np.abs(array-value)).argmin()
     return idx
 
-xBins = [485,300,250,200,0,-1000]
+#xBins = [485,300,250,200,0,-1000]
+xBins = [-50, -1000]
 def bin_X(value):
     for i in range(len(xBins)):
-        if value > i:
+        if value > xBins[i]:
             return i
 
 def bin_vel(value):
@@ -58,12 +59,11 @@ class Learner(object):
         self.last_last_action = None
         self.last_last_reward = None
 
-
-
+        self.epoch = 0 #gets overridden if provided
         self.gravity = 0
         self.explorationCoef = .001
-        self.eta = 0.5
-        self.gamma = 0.90
+        self.eta = 0.01 #* (20.0 / (self.epoch + 20))
+        self.gamma = 0.99
         self.qs = {}
 
     def reset(self):
@@ -81,10 +81,12 @@ class Learner(object):
                             self.qs[(previousState, self.last_last_action)] -
                             (self.previousReward + self.gamma * self.last_reward))
         self.qs[(previousState, self.last_last_action)] = w
-        print("Last state before death:")
-        print(self.last_last_state)
-        print(self.last_reward)
-        print ("RESET")
+
+        if DEBUG:
+            print("Last state before death:")
+            print(self.last_last_state)
+            print(self.last_reward)
+            print ("RESET")
 
 
         self.last_state  = None
@@ -181,38 +183,45 @@ def run_games(learner, hist, iters = 100, t_len = 100):
     '''
     
     for ii in range(iters):
+
+        learner.epoch = ii
+
         # Make a new monkey object.
         swing = SwingyMonkey(sound=False,                  # Don't play sounds.
                              text="Epoch %d" % (ii),       # Display the epoch on screen.
                              tick_length = t_len,          # Make game ticks super fast.
                              action_callback=learner.action_callback,
-                             reward_callback=learner.reward_callback,grav = 4)
+                             reward_callback=learner.reward_callback)
 
         # Loop until you hit something.
         while swing.game_loop():
             pass
 
         # Save score history.
-        hist.append(swing.score)
+        hist.append([swing.score, learner.gravity])
 
         # Reset the state of the learner.
         learner.reset()
-    print (learner.qs)
+    
+    if DEBUG:
+        print (learner.qs)
+    
     return
 
 
 if __name__ == '__main__':
 
-	# Select agent.
-	agent = Learner()
+        # Select agent.
+        agent = Learner()
 
-	# Empty list to save history.
-	hist = []
+        # Empty list to save history.
+        hist = []
+        DEBUG = False 
 
-	# Run games. 
-	run_games(agent, hist, 200, 1)
+        # Run games. 
+        run_games(agent, hist, 200, 1)
 
-	# Save history. 
-	np.save('hist',np.array(hist))
-
+        # Save history. 
+        #np.save('hist',np.array(hist))
+        print (hist)
 

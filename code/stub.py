@@ -36,8 +36,8 @@ def bin_vel(value):
 def getStateKey(state, grav):
     if state['monkey']['bot'] + state['monkey']['vel'] + grav < collisionWithGround:
         return 'BottomState'
-    elif state['monkey']['top'] > state['monkey']['top']:
-        return 'TopState'
+    #elif state['monkey']['top'] > state['tree']['top']:
+    #    return 'TopState'
     else:
         vel = state['monkey']['vel']
         bot_bot = state['monkey']['bot'] - state['tree']['bot']
@@ -62,11 +62,12 @@ class Learner(object):
         self.epoch = 0 #gets overridden if provided
         self.gravity = 0
         self.explorationCoef = .001
-        self.eta = 0.01 #* (20.0 / (self.epoch + 20))
+        self.eta = 0.01      #0.01 #* (20.0 / (self.epoch + 20))
         self.gamma = 0.99
         self.qs = {}
 
     def reset(self):
+        #self.explorationCoef = self.explorationCoef*.95
         # do death update:
         # ourLastVel = self.last_last_state['monkey']['vel']
         # last_bot_bot = self.last_last_state['monkey']['bot'] - self.last_last_state['tree']['bot']
@@ -138,8 +139,7 @@ class Learner(object):
             maxQCurrent = max(self.qs[(currentState, 0)],self.qs[(currentState, 1)])
             bestOption = [self.qs[(currentState, 0)], self.qs[(currentState, 1)]].index(maxQCurrent)
 
-
-            if (previousState, self.last_action) in self.qs:
+            if (previousState, self.last_action) in self.qs:# and state['monkey']['top'] < state['tree']['top']:
                 w = self.qs[(previousState, self.last_action)] - self.eta*(self.qs[(previousState, self.last_action)] -
                                                                      (self.last_reward + self.gamma*maxQCurrent))
 
@@ -222,6 +222,45 @@ if __name__ == '__main__':
         run_games(agent, hist, 200, 1)
 
         # Save history. 
-        #np.save('hist',np.array(hist))
+        np.save('hist',np.array(hist))
         print (hist)
+        grav4 = []
+        grav1 = []
+        for i in hist:
+            if i[1] == -4:
+                grav4.append(i)
+            else:
+                grav1.append(i)
+        max4 = 0
+        sum4 = 0
+        for i in grav4:
+            if i[0] > max4:
+                max4 = i[0]
+            sum4 += i[0]
+        print("eta = " + str(agent.eta))
+        print("gamma = " + str(agent.gamma))
+        print("grav = -4:")
+        print("Max:")
+        print (max4)
+        print("Avg:")
+        print (sum4*1.0/len(grav4))
+        max1 = 0
+        sum1 = 0
+        for i in grav1:
+            if i[0] > max1:
+                max1 = i[0]
+            sum1 += i[0]
+        print()
+        print("grav = -1:")
+        print("Max:")
+        print(max1)
+        print("Avg:")
+        print(sum1 * 1.0 / len(grav1))
+        print("All Avg:")
+        allSum = 0
+        for i in hist:
+            allSum += i[0]
+        print(allSum * 1.0 / len(hist))
+
+
 
